@@ -111,8 +111,8 @@ services:
 
   front:
     build:
-      context: .
-      dockerfile: docker/local/frontend.Dockerfile
+      context: ./taiga-front
+      dockerfile: docker/Dockerfile.frisbo
     environment:
       TAIGA_URL: http://localhost:${TAIGA_PORT:-9000}
       TAIGA_WEBSOCKETS_URL: ws://localhost:${TAIGA_PORT:-9000}

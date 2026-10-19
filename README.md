@@ -17,6 +17,8 @@ Issues and user stories raised from them share new comments and status activity 
 
 Under **Project Settings → Integrations → GitHub**, the **Commit reference prefix** setting replaces `TG` for that project's GitHub commits. For example, `FRISBO` recognizes `FRISBO-123` mentions and `FRISBO-123 #status-slug` status changes, case-insensitively. Existing projects default to `TG`; other Git integrations keep their existing behavior.
 
+Push all committed changes with `./scripts/push-frisbo.sh`. Each fork's `frisbo` branch automatically publishes its source image as `ghcr.io/smfloris/taiga-front:frisbo-latest` or `ghcr.io/smfloris/taiga-back:frisbo-latest`, plus a commit-specific tag. See [development and publishing instructions](docs/DEVELOPMENT.md).
+
 The original notes are in [docs/WISHLIST.md](docs/WISHLIST.md). See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for development and fork maintenance. Run `make help` for shortcuts.
 
 ## Run locally with Docker

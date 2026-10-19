@@ -60,7 +60,7 @@ This stack is independent of production and does not import production data.
 
 Edit UI code under `taiga-front/` and API code under `taiga-back/`. There are no nested Git repositories or submodules. Preserve each project's dependency files and license notices.
 
-The original forks' `.github/workflows/` directories remain inside their subtrees for reference. GitHub only executes workflows in the monorepo root's `.github/workflows/`; root CI has not been configured yet.
+Each component includes `.github/workflows/publish-frisbo-image.yml`. These workflows run in the separate forks when their `frisbo` branches are pushed. The monorepo is published at `https://github.com/SMFloris/taiga`.
 
 ## Frontend
 
@@ -123,19 +123,26 @@ git subtree pull --prefix=taiga-back back frisbo
 
 Upstream changes can be imported using the corresponding upstream remote. Review and test those changes before deploying.
 
-To prepare a frontend branch for the separate fork:
+After committing changes on `frisbo`, push the monorepo and both component forks together:
 
 ```sh
-git subtree split --prefix=taiga-front -b front-frisbo
+./scripts/push-frisbo.sh
 ```
 
-Review that branch, then publish it to the frontend fork's `frisbo` branch when ready:
+The script fetches each fork's `frisbo` branch, checks that its history is included locally, and updates the component-only `front-frisbo` and `back-frisbo` export branches. It pushes without force, then pushes the monorepo to `origin`. A fresh clone also needs the four component remotes above. The export uses `git commit-tree` because recursive `git subtree split` crashes on the imported histories with the installed Git version. Each export retains the component fork's existing history and exactly matches its directory in the monorepo.
+
+## Published images
+
+Every push to each fork's `frisbo` branch builds that fork's source and publishes a Linux AMD64 image to GitHub Container Registry. You can also rerun **Publish frisbo image** manually from Actions on `frisbo`.
 
 ```sh
-git push front front-frisbo:frisbo
+docker pull ghcr.io/smfloris/taiga-front:frisbo-latest
+docker pull ghcr.io/smfloris/taiga-back:frisbo-latest
 ```
 
-Use `--prefix=taiga-back` and remote `back` for backend changes. The monorepo needs its own GitHub repository before configuring an `origin`; it should not be pushed wholesale into either component fork.
+Each release also has a `frisbo-<full component commit SHA>` tag, OCI source/revision labels, and build provenance. The workflow summary records the digest. `frisbo-latest` advances with successful builds; use the commit tag or digest to pin a deployment.
+
+Publishing uses the workflow's built-in `GITHUB_TOKEN` with `packages: write`; no registry password secret is required. Package visibility is separate from repository visibility. Private packages require `docker login ghcr.io` with a token allowed to read packages.
 
 ## Future fork deployment
 
@@ -145,6 +152,6 @@ The imported backend Dockerfile builds local source:
 docker build -f taiga-back/docker/Dockerfile -t taiga-back:local taiga-back
 ```
 
-The imported `taiga-front/docker/Dockerfile` downloads a prebuilt upstream release. Building that Dockerfile directly does **not** include frontend edits. The local Compose stack instead uses `docker/local/frontend.Dockerfile`, which compiles this checkout and packages the result with its runtime configuration. Optional contrib plugins are not bundled in the local image.
+The imported `taiga-front/docker/Dockerfile` downloads a prebuilt upstream release. Building that Dockerfile directly does **not** include frontend edits. The local Compose stack instead uses `taiga-front/docker/Dockerfile.frisbo`, which compiles this checkout and packages the result with its runtime configuration. Optional contrib plugins are not bundled in the local image.
 
 Production runs at `https://taiga.frisbo.ro` on `95.216.72.50`, with its deployment in `/root/taiga-docker`. This monorepo setup does not deploy local code. Production deployment configuration and credentials are not copied into this repository.
