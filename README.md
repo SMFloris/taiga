@@ -13,6 +13,8 @@ Both projects are normal directories in one Git repository, imported with Git su
 
 Our changes currently include Epics View Options that hide closed epics and user stories by default, and a **Custom links** module under Project Settings → Modules. Each custom link has a name, an HTTP/HTTPS URL, and a new-tab checkbox; enabled links appear above Issues in the sidebar.
 
+Issues and user stories raised from them share new comments and status activity in both directions. Mirrored comments appear under **Issue Bot**, identify the original author, and link to the source item. Status messages include the previous and new status; each item keeps its own status. Existing promotion links work too. If an issue has several raised stories, its updates appear on each story; story updates return to the issue. Sharing stops across project boundaries. Comment edits and deletions remain local to their original item.
+
 Under **Project Settings → Integrations → GitHub**, the **Commit reference prefix** setting replaces `TG` for that project's GitHub commits. For example, `FRISBO` recognizes `FRISBO-123` mentions and `FRISBO-123 #status-slug` status changes, case-insensitively. Existing projects default to `TG`; other Git integrations keep their existing behavior.
 
 The original notes are in [docs/WISHLIST.md](docs/WISHLIST.md). See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for development and fork maintenance. Run `make help` for shortcuts.
