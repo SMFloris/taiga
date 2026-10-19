@@ -1,5 +1,61 @@
 # Development
 
+## Local Docker stack
+
+From the monorepo root, with Docker and the Compose plugin installed:
+
+```sh
+docker compose up --build -d --wait
+```
+
+The first build installs Python and frontend dependencies and can take several minutes. Open `http://localhost:9000` and log in as `admin` with password `admin`. The backend and frontend images compile this checkout; supporting services use published images.
+
+Mail is delivered to the local Mailpit inbox at `http://localhost:8025`. PostgreSQL and RabbitMQ are only accessible inside the Compose network. Published ports bind to `127.0.0.1`. This configuration uses development credentials and is intended for local testing.
+
+Optional configuration:
+
+```sh
+cp .env.example .env
+# Edit ports and the initial administrator credentials, then start Compose.
+```
+
+`TAIGA_PORT` changes the app port and the frontend/backend URLs together. `MAIL_PORT` changes the inbox port. Administrator environment variables are used only when that username does not exist; changing the password variable does not reset an existing account.
+
+Source changes require rebuilding their image; this setup does not hot reload:
+
+```sh
+# After frontend changes:
+docker compose up -d --build front
+
+# After backend changes (also reruns initialization/migrations):
+docker compose up -d --build init back async
+```
+
+After recreating either application container, restart the gateway so nginx refreshes its container addresses:
+
+```sh
+docker compose restart gateway
+```
+
+Useful commands:
+
+```sh
+docker compose ps -a
+docker compose logs -f back async
+docker compose exec back python manage.py shell
+docker compose exec back python manage.py changepassword admin
+docker compose down
+```
+
+Database, uploads, static assets, and queue data use named volumes. To **delete all local data** and start over:
+
+```sh
+docker compose down -v
+docker compose up --build -d --wait
+```
+
+This stack is independent of production and does not import production data.
+
 ## Repository layout
 
 Edit UI code under `taiga-front/` and API code under `taiga-back/`. There are no nested Git repositories or submodules. Preserve each project's dependency files and license notices.
@@ -47,6 +103,8 @@ DJANGO_SETTINGS_MODULE=settings.config python manage.py runserver 127.0.0.1:8000
 
 ## Updating from the forks
 
+Use the `frisbo` branch for our changes. The fork branches are also named `frisbo`; upstream repositories continue to use `main`.
+
 After Git initialization, these remotes are available:
 
 | Remote | Repository |
@@ -59,8 +117,8 @@ After Git initialization, these remotes are available:
 With a clean working tree, import later fork changes using the same full-history subtree strategy:
 
 ```sh
-git subtree pull --prefix=taiga-front front main
-git subtree pull --prefix=taiga-back back main
+git subtree pull --prefix=taiga-front front frisbo
+git subtree pull --prefix=taiga-back back frisbo
 ```
 
 Upstream changes can be imported using the corresponding upstream remote. Review and test those changes before deploying.
@@ -68,10 +126,16 @@ Upstream changes can be imported using the corresponding upstream remote. Review
 To prepare a frontend branch for the separate fork:
 
 ```sh
-git subtree split --prefix=taiga-front -b front-changes
+git subtree split --prefix=taiga-front -b front-frisbo
 ```
 
-Review that branch, then push it explicitly when ready. Use `--prefix=taiga-back` for backend changes. The monorepo needs its own GitHub repository before configuring an `origin`; it should not be pushed wholesale into either component fork.
+Review that branch, then publish it to the frontend fork's `frisbo` branch when ready:
+
+```sh
+git push front front-frisbo:frisbo
+```
+
+Use `--prefix=taiga-back` and remote `back` for backend changes. The monorepo needs its own GitHub repository before configuring an `origin`; it should not be pushed wholesale into either component fork.
 
 ## Future fork deployment
 
@@ -81,6 +145,6 @@ The imported backend Dockerfile builds local source:
 docker build -f taiga-back/docker/Dockerfile -t taiga-back:local taiga-back
 ```
 
-The imported frontend Dockerfile downloads a prebuilt upstream release. Building that Dockerfile directly does **not** include frontend edits. A fork deployment must compile this checkout with `make front-build` and package the resulting `taiga-front/dist/` with the runtime configuration and plugins it needs.
+The imported `taiga-front/docker/Dockerfile` downloads a prebuilt upstream release. Building that Dockerfile directly does **not** include frontend edits. The local Compose stack instead uses `docker/local/frontend.Dockerfile`, which compiles this checkout and packages the result with its runtime configuration. Optional contrib plugins are not bundled in the local image.
 
 Production runs at `https://taiga.frisbo.ro` on `95.216.72.50`, with its deployment in `/root/taiga-docker`. This monorepo setup does not deploy local code. Production deployment configuration and credentials are not copied into this repository.

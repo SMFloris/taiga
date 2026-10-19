@@ -1,0 +1,178 @@
+name: taiga-local
+
+x-backend: &backend
+  image: taiga-local-back:dev
+  build:
+    context: ./taiga-back
+    dockerfile: docker/Dockerfile
+  environment: &backend-environment
+    POSTGRES_DB: taiga
+    POSTGRES_USER: taiga
+    POSTGRES_PASSWORD: taiga
+    POSTGRES_HOST: db
+    TAIGA_SECRET_KEY: local-development-secret-not-for-production
+    TAIGA_SITES_SCHEME: http
+    TAIGA_SITES_DOMAIN: localhost:${TAIGA_PORT:-9000}
+    TAIGA_SUBPATH: ""
+    RABBITMQ_USER: taiga
+    RABBITMQ_PASS: taiga
+    TAIGA_EVENTS_RABBITMQ_HOST: rabbitmq
+    TAIGA_ASYNC_RABBITMQ_HOST: rabbitmq
+    ENABLE_TELEMETRY: "False"
+    PUBLIC_REGISTER_ENABLED: "True"
+    SESSION_COOKIE_SECURE: "False"
+    CSRF_COOKIE_SECURE: "False"
+    EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+    EMAIL_HOST: mail
+    EMAIL_PORT: "1025"
+    EMAIL_HOST_USER: ""
+    EMAIL_HOST_PASSWORD: ""
+    EMAIL_USE_TLS: "False"
+    EMAIL_USE_SSL: "False"
+    DEFAULT_FROM_EMAIL: taiga@localhost
+  volumes:
+    - static:/taiga-back/static
+    - media:/taiga-back/media
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: taiga
+      POSTGRES_USER: taiga
+      POSTGRES_PASSWORD: taiga
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U taiga -d taiga"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  rabbitmq:
+    image: rabbitmq:3.13-alpine
+    hostname: taiga-local-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: taiga
+      RABBITMQ_DEFAULT_PASS: taiga
+      RABBITMQ_DEFAULT_VHOST: taiga
+    volumes:
+      - rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  mail:
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:${MAIL_PORT:-8025}:8025"
+
+  init:
+    <<: *backend
+    entrypoint: [bash, /local/init.sh]
+    environment:
+      <<: *backend-environment
+      CELERY_ENABLED: "False"
+      DJANGO_SUPERUSER_USERNAME: ${TAIGA_ADMIN_USER:-admin}
+      DJANGO_SUPERUSER_EMAIL: ${TAIGA_ADMIN_EMAIL:-admin@localhost}
+      DJANGO_SUPERUSER_PASSWORD: ${TAIGA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - static:/taiga-back/static
+      - media:/taiga-back/media
+      - ./docker/local/init.sh:/local/init.sh:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  back:
+    <<: *backend
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      mail:
+        condition: service_started
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/', timeout=5)"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+
+  async:
+    <<: *backend
+    entrypoint: [/taiga-back/docker/async_entrypoint.sh]
+    depends_on:
+      back:
+        condition: service_healthy
+
+  front:
+    build:
+      context: .
+      dockerfile: docker/local/frontend.Dockerfile
+    environment:
+      TAIGA_URL: http://localhost:${TAIGA_PORT:-9000}
+      TAIGA_WEBSOCKETS_URL: ws://localhost:${TAIGA_PORT:-9000}
+      TAIGA_SUBPATH: ""
+      PUBLIC_REGISTER_ENABLED: "true"
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1/conf.json]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  events:
+    image: taigaio/taiga-events:6.10.0
+    restart: unless-stopped
+    environment:
+      RABBITMQ_USER: taiga
+      RABBITMQ_PASS: taiga
+      TAIGA_EVENTS_RABBITMQ_HOST: rabbitmq
+      TAIGA_SECRET_KEY: local-development-secret-not-for-production
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "require('http').get('http://127.0.0.1:3023/healthz', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  protected:
+    image: taigaio/taiga-protected:6.10.1
+    environment:
+      MAX_AGE: "360"
+      SECRET_KEY: local-development-secret-not-for-production
+
+  gateway:
+    image: nginx:1.28-alpine
+    ports:
+      - "127.0.0.1:${TAIGA_PORT:-9000}:80"
+    volumes:
+      - ./docker/local/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+      - static:/taiga/static:ro
+      - media:/taiga/media:ro
+    depends_on:
+      back:
+        condition: service_healthy
+      front:
+        condition: service_healthy
+      events:
+        condition: service_healthy
+      protected:
+        condition: service_started
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1/api/v1/]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  database:
+  rabbitmq:
+  static:
+  media:

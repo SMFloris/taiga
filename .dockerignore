@@ -1,0 +1,13 @@
+.git
+.bootstrap
+.env
+.env.*
+**/.git
+**/node_modules
+**/dist
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/media
+**/static
+**/tmp

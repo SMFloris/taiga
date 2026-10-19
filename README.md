@@ -9,7 +9,21 @@ Workspace for changes spanning the Taiga frontend and backend.
 
 Both projects are normal directories in one Git repository, imported with Git subtrees and their full commit histories. Changes to the API and UI can share a commit.
 
+`frisbo` is the development branch for our changes in this monorepo and in each component fork. Upstream `main` branches remain the source for upstream updates.
+
+Our changes currently include Epics View Options that hide closed epics and user stories by default, and a **Custom links** module under Project Settings → Modules. Each custom link has a name, an HTTP/HTTPS URL, and a new-tab checkbox; enabled links appear above Issues in the sidebar.
+
 The original notes are in [docs/WISHLIST.md](docs/WISHLIST.md). See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for development and fork maintenance. Run `make help` for shortcuts.
+
+## Run locally with Docker
+
+```sh
+docker compose up --build -d --wait
+```
+
+Open **http://localhost:9000** and log in with **admin / admin**. Both applications are built from the source in this repository. PostgreSQL, RabbitMQ, live events, protected attachments, and a background worker are included. Local emails are captured in Mailpit at **http://localhost:8025**.
+
+Migrations, project templates, static files, and the administrator are initialized automatically. Data survives `docker compose down`. See [the local Docker guide](docs/DEVELOPMENT.md#local-docker-stack) for rebuilding changes, changing ports, and resetting data.
 
 ## Finish Git initialization
 
