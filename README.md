@@ -13,6 +13,8 @@ Both projects are normal directories in one Git repository, imported with Git su
 
 Our changes currently include Epics View Options that hide closed epics and user stories by default, and a **Custom links** module under Project Settings → Modules. Each custom link has a name, an HTTP/HTTPS URL, and a new-tab checkbox; enabled links appear above Issues in the sidebar.
 
+Under **Project Settings → Integrations → GitHub**, the **Commit reference prefix** setting replaces `TG` for that project's GitHub commits. For example, `FRISBO` recognizes `FRISBO-123` mentions and `FRISBO-123 #status-slug` status changes, case-insensitively. Existing projects default to `TG`; other Git integrations keep their existing behavior.
+
 The original notes are in [docs/WISHLIST.md](docs/WISHLIST.md). See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for development and fork maintenance. Run `make help` for shortcuts.
 
 ## Run locally with Docker
